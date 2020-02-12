@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\dependencies\PanelsFromWalls.Dependencies.csproj"/>
+    <ProjectReference Include="..\..\hypar\Functions\src\Hypar.Functions.csproj"/>
+    <ProjectReference Include="..\..\hypar\Elements\src\Elements\Elements.csproj"/>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Hypar.Elements" Version="0.5.2"/>
+  </ItemGroup>
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://hypar.io/Schemas/Function.json",
+  "description": "The PanelsFromWalls function.",
+  "id": "c4abcfd3-4c75-45da-a1e0-21091da6edea",
+  "name": "Panels From Walls",
+  "repository_url": "https://github.com/hypar-io/function",
+  "model_dependencies": [
+    {
+      "name": "Walls",
+      "optional": false
+    }
+  ],
+  "inputs": [
+    {
+      "min": 1.0,
+      "max": 10.0,
+      "step": 1.0,
+      "name": "Panel Length",
+      "description": "The panel length.",
+      "type": "range"
+    },
+    {
+      "min": 1.0,
+      "max": 10.0,
+      "step": 1.0,
+      "name": "Corner Length",
+      "description": "The length of any leg of a custom section where two or more walls meet.",
+      "type": "range"
+    },
+    {
+      "name": "Color-code by Length",
+      "description": "Set to true to visualize wall sections colored according to their length.",
+      "type": "boolean"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "Panel Count",
+      "description": "The total number of panels.",
+      "type": "number"
+    },
+    {
+      "name": "Non-Standard Panel Count",
+      "description": "The number of panels that are neither the corner nor the designated panel length.",
+      "type": "number"
+    },
+    {
+      "name": "Unique Lengths Count",
+      "description": "The number of unique panel lengths generated.",
+      "type": "number"
+    }
+  ],
+  "preview_image": null,
+  "element_types": null
+}
