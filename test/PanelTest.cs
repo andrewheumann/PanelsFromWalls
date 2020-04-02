@@ -8,6 +8,7 @@ using Xunit.Abstractions;
 using Hypar.Functions.Execution.Local;
 using System.IO;
 using System.Collections.Generic;
+using Elements.Serialization.glTF;
 
 namespace PanelsFromWalls.Tests
 {
@@ -23,6 +24,20 @@ namespace PanelsFromWalls.Tests
             var outModel = output.model.ToJson();
             File.WriteAllText("/Users/andrewheumann/Desktop/color-coded-walls.json", outModel);
 
+        }
+
+        [Fact]
+        public void LoadWallsByProfile()
+        {
+            var json = File.ReadAllText("../../../../WallsByProfile.json");
+            var model = Model.FromJson(json);
+            model.ToGlTF("/Users/andrewheumann/Desktop/inputModel.glb");
+            var inputs = new PanelsFromWallsInputs(3, 2, true, "", "", new Dictionary<string, string>(), "", "", "");
+            var output = PanelsFromWalls.Execute(new Dictionary<string, Model> { { "Walls", model } }, inputs);
+
+            var outModel = output.model.ToJson();
+            File.WriteAllText("/Users/andrewheumann/Desktop/color-coded-walls.json", outModel);
+            output.model.ToGlTF("/Users/andrewheumann/Desktop/color-coded-walls.glb");
         }
 
     }
