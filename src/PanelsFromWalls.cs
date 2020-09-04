@@ -59,7 +59,7 @@ namespace PanelsFromWalls
 
 
                 var flatProfile = fromWall.OfProfile(profile);
-                var polygons = new[] { flatProfile.Perimeter }.Union(flatProfile.Voids).ToList();
+                var polygons = new[] { flatProfile.Perimeter }.Union(flatProfile.Voids).Select(p => Make2d(p)).ToList();
                 var grid = new Grid2d(polygons);
                 grid.U.DivideByFixedLength(input.PanelLength, FixedDivisionMode.RemainderAtEnd);
                 foreach (var cell in grid.GetCells())
@@ -86,11 +86,10 @@ namespace PanelsFromWalls
                             color = new Color(rand.NextDouble(), rand.NextDouble(), rand.NextDouble(), 1.0);
                             colorMap.Add(identifier, color);
                         }
-                        var material = input.ColorCodeByLength ? new Material(color, 0, 0, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
+                        var material = input.ColorCodeByLength ? new Material(color, 0, 0, false, null, true, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
                         var geomRep = new Representation(new[] { extrude });
                         var panel = new WallPanel(identifier, cellProfile, true, wall.Thickness, toWall, material, geomRep, false, Guid.NewGuid(), "");
                         panelsOut.Add(panel);
-
                     }
                     else
                     {
@@ -103,7 +102,7 @@ namespace PanelsFromWalls
                             var identifier = $"C-{uniqueIDCounter++:00}";
                             var color = new Color(rand.NextDouble(), rand.NextDouble(), rand.NextDouble(), 1.0);
                             colorMap.Add(identifier, color);
-                            var material = input.ColorCodeByLength ? new Material(color, 0, 0, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
+                            var material = input.ColorCodeByLength ? new Material(color, 0, 0, false, null, true, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
                             var geomRep = new Representation(new[] { extrude });
                             var panel = new WallPanel(identifier, cellProfile, true, wall.Thickness, toWall, material, geomRep, false, Guid.NewGuid(), "");
                             panelsOut.Add(panel);
@@ -122,7 +121,7 @@ namespace PanelsFromWalls
 
         private static Polygon Make2d(Polygon polygon)
         {
-            return new Polygon(polygon.Vertices.Select(v => new Vector3(v.X, v.Y)).ToList());
+            return new Polygon(polygon.Vertices.Select(v => new Vector3(v.X, v.Y)).Distinct().ToList());
         }
 
         private static List<WallPanel> ProcessWallsAndStandardWalls(PanelsFromWallsInputs input, List<Wall> allWalls, out int totalCount, out int uniqueCount, out int nonStandardCount)
@@ -130,7 +129,7 @@ namespace PanelsFromWalls
             var wallCenterlines = allWalls.Select(TryGetCenterlineFromWall).Where(s => s != null);
             var endPoints = wallCenterlines.SelectMany(l => new[] { l.Start, l.End });
             var network = new Network(wallCenterlines);
-            Dictionary<Edge, Grid1d> edgeGrids = new Dictionary<Edge, Grid1d>();
+            Dictionary<Elements.Spatial.Edge, Grid1d> edgeGrids = new Dictionary<Elements.Spatial.Edge, Grid1d>();
             foreach (var edge in network.Edges)
             {
                 var edgeLine = network.GetEdgeLine(edge);
@@ -210,7 +209,7 @@ namespace PanelsFromWalls
                     color = new Color(rand.NextDouble(), rand.NextDouble(), rand.NextDouble(), 1.0);
                     colorMap.Add(lengthKey, color);
                 }
-                var mat = input.ColorCodeByLength ? new Material(color, 0, 0, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
+                var mat = input.ColorCodeByLength ? new Material(color, 0, 0, false, null, true, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
                 walls.Add(CreateSimpleWallPanel(wallLine, 0.1, 3.0, mat));
             }
 

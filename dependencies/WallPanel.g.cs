@@ -32,13 +32,18 @@ namespace Elements
             var validator = Validator.Instance.GetFirstValidatorForType<WallPanel>();
             if(validator != null)
             {
-                validator.Validate(new object[]{ @identifier, @profile, @isTrimmed, @thickness, @transform, @material, @representation, @isElementDefinition, @id, @name});
+                validator.PreConstruct(new object[]{ @identifier, @profile, @isTrimmed, @thickness, @transform, @material, @representation, @isElementDefinition, @id, @name});
             }
         
             this.Identifier = @identifier;
             this.Profile = @profile;
             this.IsTrimmed = @isTrimmed;
             this.Thickness = @thickness;
+        
+            if(validator != null)
+            {
+                validator.PostConstruct(this);
+            }
         }
     
         /// <summary>The identifier of this section.</summary>
