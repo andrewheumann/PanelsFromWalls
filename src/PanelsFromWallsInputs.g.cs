@@ -35,7 +35,7 @@ namespace PanelsFromWalls
 		public bool ColorCodeByLength {get;}
 
 
-        
+
         /// <summary>
         /// Construct a PanelsFromWallsInputs with default inputs.
         /// This should be used for testing only.
@@ -54,11 +54,11 @@ namespace PanelsFromWalls
         /// </summary>
         /// <returns></returns>
         [JsonConstructor]
-        public PanelsFromWallsInputs(double panellength, double cornerlength, bool colorcodebylength, string bucketName, string uploadsBucket, Dictionary<string, string> modelInputKeys, string gltfKey, string elementsKey, string ifcKey): base(bucketName, uploadsBucket, modelInputKeys, gltfKey, elementsKey, ifcKey)
+        public PanelsFromWallsInputs(double panelLength, double cornerLength, bool colorCodeByLength, string bucketName, string uploadsBucket, Dictionary<string, string> modelInputKeys, string gltfKey, string elementsKey, string ifcKey): base(bucketName, uploadsBucket, modelInputKeys, gltfKey, elementsKey, ifcKey)
         {
-			this.PanelLength = panellength;
-			this.CornerLength = cornerlength;
-			this.ColorCodeByLength = colorcodebylength;
+			this.PanelLength = panelLength;
+			this.CornerLength = cornerLength;
+			this.ColorCodeByLength = colorCodeByLength;
 
 		}
 

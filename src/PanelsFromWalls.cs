@@ -19,21 +19,72 @@ namespace PanelsFromWalls
         /// <returns>A PanelsFromWallsOutputs instance containing computed results and the model with any new elements.</returns>
         public static PanelsFromWallsOutputs Execute(Dictionary<string, Model> inputModels, PanelsFromWallsInputs input)
         {
+            var outputModel = new Model();
             var allWalls = new List<Wall>();
             var allWallsByProfile = new List<WallByProfile>();
-            inputModels.TryGetValue("Walls", out Model wallModel);
-            if (wallModel == null || (!wallModel.AllElementsOfType<Wall>().Any() && !wallModel.AllElementsOfType<WallByProfile>().Any()))
+            var hasWallModel = inputModels.TryGetValue("Walls", out Model wallModel);
+            var hasFacadeModel = inputModels.TryGetValue("Facade", out Model facadeModel);
+            if (System.IO.File.Exists("/Users/andrewheumann/Hypar Dropbox/Andrew Heumann/Hypar/Sample Data/DemoExportFromRevitWithDynamo/WallsAndFloors-Residential.json"))
             {
-                throw new ArgumentException("No Walls found.");
+                wallModel = Model.FromJson(System.IO.File.ReadAllText("/Users/andrewheumann/Hypar Dropbox/Andrew Heumann/Hypar/Sample Data/DemoExportFromRevitWithDynamo/WallsAndFloors-Residential.json"));
             }
-            allWalls.AddRange(wallModel.AllElementsOfType<Wall>());
-            allWallsByProfile.AddRange(wallModel.AllElementsOfType<WallByProfile>());
+            if (wallModel == null && facadeModel == null)
+            {
+                throw new ArgumentException("This function requires either Walls or a Facade that contains walls. Neither was found in your workflow.");
+            }
+            var nonNullModel = wallModel ?? facadeModel;
+            if (!nonNullModel.AllElementsOfType<Wall>().Any() && !nonNullModel.AllElementsOfType<WallByProfile>().Any())
+            {
+                throw new ArgumentException("No Wall or WallByProfile elements were found in the Walls or Facade dependency.");
+            }
+            if (wallModel != null)
+            {
+                allWalls.AddRange(wallModel.AllElementsOfType<Wall>());
+                allWallsByProfile.AddRange(wallModel.AllElementsOfType<WallByProfile>());
+            }
+            if (facadeModel != null)
+            {
+                allWalls.AddRange(facadeModel.AllElementsOfType<Wall>());
+                allWallsByProfile.AddRange(facadeModel.AllElementsOfType<WallByProfile>());
+            }
+            List<Wall> wallsWithoutOpenings = new List<Wall>();
+            foreach (var wall in allWalls)
+            {
+                // convert to wall by profile to handle openings
+                if (wall.Openings != null && wall.Openings.Count > 0)
+                {
+                    var cl = TryGetCenterlineFromWall(wall, out var thickness);
+                    if (cl == null)
+                    {
+                        wallsWithoutOpenings.Add(wall);
+                        continue;
+                    }
+                    var wallRect = new Polygon(new[] {
+                        cl.Start,
+                        cl.End,
+                        cl.End + new Vector3(0,0,wall.Height),
+                        cl.Start + new Vector3(0,0,wall.Height)
+                    });
+                    var toWall = new Transform(cl.Start, cl.Direction(), Vector3.ZAxis, cl.Direction().Cross(Vector3.ZAxis).Negate());
+                    var voids = wall.Openings.Select(o => o.Perimeter.TransformedPolygon(o.Transform)).ToList();
+                    var profile = new Profile(wallRect.TransformedPolygon(wall.Transform), voids, Guid.NewGuid(), null);
+                    // outputModel.AddElements(voids.Select(v => new ModelCurve(v)));
+                    // outputModel.AddElement(new ModelCurve(wallRect.TransformedPolygon(wall.Transform)));
+                    var wbp = new WallByProfile(profile, thickness, cl, new Transform());
+                    allWallsByProfile.Add(wbp);
+                }
+                else
+                {
+                    wallsWithoutOpenings.Add(wall);
+                }
+            }
 
-            var panels = ProcessWallsAndStandardWalls(input, allWalls, out int totalCount, out int uniqueCount, out int nonStandardCount);
+            var panels = ProcessWallsAndStandardWalls(input, wallsWithoutOpenings, out int totalCount, out int uniqueCount, out int nonStandardCount);
             var panels2d = ProcessWallsByProfile(input, allWallsByProfile, out int totalCountP, out int uniqueCountP, out int nonStandardCountP);
             var output = new PanelsFromWallsOutputs(totalCount + totalCountP, nonStandardCount + nonStandardCountP, uniqueCount + uniqueCountP);
-            output.model.AddElements(panels);
-            output.model.AddElements(panels2d);
+            outputModel.AddElements(panels);
+            outputModel.AddElements(panels2d);
+            output.Model = outputModel;
             return output;
         }
 
@@ -43,7 +94,7 @@ namespace PanelsFromWalls
             Dictionary<string, Color> colorMap = new Dictionary<string, Color>();
             uniqueCount = 0;
             nonStandardCount = 0;
-            var rand = new Random();
+            var rand = new Random(5);
             int uniqueIDCounter = 0;
 
             foreach (var wall in allWallsByProfile)
@@ -56,6 +107,7 @@ namespace PanelsFromWalls
                 var fromWall = new Transform(toWall);
 
                 fromWall.Invert();
+                toWall.Concatenate(wall.Transform);
 
 
                 var flatProfile = fromWall.OfProfile(profile);
@@ -64,36 +116,43 @@ namespace PanelsFromWalls
                 grid.U.DivideByFixedLength(input.PanelLength, FixedDivisionMode.RemainderAtEnd);
                 foreach (var cell in grid.GetCells())
                 {
-                    var cellGeometry = cell.GetTrimmedCellGeometry().OfType<Polygon>();
+                    var cellGeometries = cell.GetTrimmedCellGeometry().OfType<Polygon>();
                     var isTrimmed = cell.IsTrimmed();
                     if (!isTrimmed)
                     {
-                        var polygon = Make2d(cellGeometry.FirstOrDefault());
-                        if (polygon == null) continue;
-                        var cellProfile = new Profile(polygon);
+                        var outerLoops = cellGeometries.Where(c => !c.IsClockWise());
+                        var innerLoops = cellGeometries.Where(c => c.IsClockWise());
+                        foreach (var cellGeometry in outerLoops)
+                        {
+                            var containedLoops = innerLoops.Where(i => cellGeometry.Covers(i)).Select(Make2d).ToList();
+                            
+                            var polygon = Make2d(cellGeometry);
+                            if (polygon == null) continue;
+                            var cellProfile = new Profile(polygon, containedLoops, Guid.NewGuid(), null);
 
-                        var thicknessTransform = new Transform(0, 0, -wall.Thickness / 2.0);
-                        cellProfile = thicknessTransform.OfProfile(cellProfile);
-                        var extrude = new Extrude(cellProfile, wall.Thickness, Vector3.ZAxis, false);
-                        var identifier = $"{Math.Round(cell.U.Domain.Length, 2)} x {Math.Round(cell.V.Domain.Length, 2)}";
-                        Color color = default(Color);
-                        if (colorMap.ContainsKey(identifier))
-                        {
-                            color = colorMap[identifier];
+                            var thicknessTransform = new Transform(0, 0, -wall.Thickness / 2.0);
+                            cellProfile = thicknessTransform.OfProfile(cellProfile);
+                            var extrude = new Extrude(cellProfile, wall.Thickness, Vector3.ZAxis, false);
+                            var identifier = $"{Math.Round(cell.U.Domain.Length, 2)} x {Math.Round(cell.V.Domain.Length, 2)}";
+                            Color color = default(Color);
+                            if (colorMap.ContainsKey(identifier))
+                            {
+                                color = colorMap[identifier];
+                            }
+                            else
+                            {
+                                color = new Color(rand.NextDouble(), rand.NextDouble(), rand.NextDouble(), 1.0);
+                                colorMap.Add(identifier, color);
+                            }
+                            var material = input.ColorCodeByLength ? new Material(color, 0, 0, false, null, true, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
+                            var geomRep = new Representation(new[] { extrude });
+                            var panel = new WallPanel(identifier, cellProfile, true, wall.Thickness, toWall, material, geomRep, false, Guid.NewGuid(), "");
+                            panelsOut.Add(panel);
                         }
-                        else
-                        {
-                            color = new Color(rand.NextDouble(), rand.NextDouble(), rand.NextDouble(), 1.0);
-                            colorMap.Add(identifier, color);
-                        }
-                        var material = input.ColorCodeByLength ? new Material(color, 0, 0, false, null, true, Guid.NewGuid(), color.ToString()) : BuiltInMaterials.Concrete;
-                        var geomRep = new Representation(new[] { extrude });
-                        var panel = new WallPanel(identifier, cellProfile, true, wall.Thickness, toWall, material, geomRep, false, Guid.NewGuid(), "");
-                        panelsOut.Add(panel);
                     }
                     else
                     {
-                        foreach (var polygon in cellGeometry)
+                        foreach (var polygon in cellGeometries)
                         {
                             var cellProfile = new Profile(polygon);
                             var thicknessTransform = new Transform(0, 0, -wall.Thickness / 2.0);
@@ -192,7 +251,7 @@ namespace PanelsFromWalls
 
             // Create walls from lines, and assign a random color material
             var walls = new List<WallPanel>();
-            var rand = new Random();
+            var rand = new Random(5);
             var colorMap = new Dictionary<int, Color>();
             colorMap.Add(KeyFromLength(input.CornerLength), Colors.Red);
             if (input.CornerLength != input.PanelLength) colorMap.Add(KeyFromLength(input.PanelLength), Colors.Blue);
@@ -237,11 +296,15 @@ namespace PanelsFromWalls
         {
             return (int)(Math.Round(length, 2) * 100);
         }
-
         public static Line TryGetCenterlineFromWall(Wall w)
+        {
+            return TryGetCenterlineFromWall(w, out _);
+        }
+        public static Line TryGetCenterlineFromWall(Wall w, out double thickness)
         {
             if (w is StandardWall sw)
             {
+                thickness = sw.Thickness;
                 return sw.CenterLine;
             }
             var wallProfile = w.Profile;
@@ -258,10 +321,12 @@ namespace PanelsFromWalls
                     //assume these are antiparallel
                     var A = (longest.Start + secondLongest.End) / 2.0;
                     var B = (longest.End + secondLongest.Start) / 2.0;
+                    thickness = longest.PointAt(0.5).DistanceTo(secondLongest);
                     return new Line(A, B);
                 }
                 else
                 {
+                    thickness = Double.NaN;
                     // throw new NotSupportedException("Walls with complex profiles are not supported.");
                     return null;
                 }
@@ -271,8 +336,10 @@ namespace PanelsFromWalls
                 var boundary = wallXform.OfPolygon(wallProfile.Perimeter);
                 //This is a bad way to do this! but hopefully this mostly happens with
                 //StandardWalls so we're unlikely to run into this case. 
+                thickness = 0; // can't determine thickness from profile 
                 return boundary.Segments().OrderBy(s => s.PointAt(0.5).Z).First();
             }
+            thickness = Double.NaN;
             return null;
         }
     }

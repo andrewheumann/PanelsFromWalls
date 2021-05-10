@@ -35,7 +35,7 @@ namespace PanelsFromWalls
 		public double UniqueLengthsCount {get;}
 
 
-        
+
         /// <summary>
         /// Construct a PanelsFromWallsOutputs with default inputs.
         /// This should be used for testing only.
@@ -51,11 +51,11 @@ namespace PanelsFromWalls
         /// </summary>
         /// <returns></returns>
         [JsonConstructor]
-        public PanelsFromWallsOutputs(double panelcount, double nonstandardpanelcount, double uniquelengthscount): base()
+        public PanelsFromWallsOutputs(double panelCount, double nonStandardPanelCount, double uniqueLengthsCount): base()
         {
-			this.PanelCount = panelcount;
-			this.NonStandardPanelCount = nonstandardpanelcount;
-			this.UniqueLengthsCount = uniquelengthscount;
+			this.PanelCount = panelCount;
+			this.NonStandardPanelCount = nonStandardPanelCount;
+			this.UniqueLengthsCount = uniqueLengthsCount;
 
 		}
 

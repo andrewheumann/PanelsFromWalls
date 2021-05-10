@@ -21,7 +21,7 @@ namespace PanelsFromWalls.Tests
             var inputs = new PanelsFromWallsInputs(6, 6, true, "", "", new Dictionary<string, string>(), "", "", "");
             var output = PanelsFromWalls.Execute(new Dictionary<string, Model> { { "Walls", model } }, inputs);
 
-            var outModel = output.model.ToJson();
+            var outModel = output.Model.ToJson();
             File.WriteAllText("/Users/andrewheumann/Desktop/color-coded-walls.json", outModel);
 
         }
@@ -35,9 +35,9 @@ namespace PanelsFromWalls.Tests
             var inputs = new PanelsFromWallsInputs(3, 2, true, "", "", new Dictionary<string, string>(), "", "", "");
             var output = PanelsFromWalls.Execute(new Dictionary<string, Model> { { "Walls", model } }, inputs);
 
-            var outModel = output.model.ToJson();
+            var outModel = output.Model.ToJson();
             File.WriteAllText("/Users/andrewheumann/Desktop/color-coded-walls.json", outModel);
-            output.model.ToGlTF("/Users/andrewheumann/Desktop/color-coded-walls.glb");
+            output.Model.ToGlTF("/Users/andrewheumann/Desktop/color-coded-walls.glb");
         }
 
     }
